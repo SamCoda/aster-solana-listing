@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Home, TrendingUp, Settings, Star, Sparkles, Zap, Users, LogIn, LogOut } from "lucide-react"
+import { Home, TrendingUp, Settings, Star, Sparkles, Zap, Users, LogIn, LogOut, MessageCircle, Twitter, Instagram, Wand2 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useVote } from "@/lib/vote-context"
 import { useState } from "react"
@@ -15,12 +15,11 @@ export function Sidebar() {
 
   const navItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: TrendingUp, href: "/trending", label: "Trending" },
-    { icon: Star, href: "/promoted", label: "Promoted" },
-    { icon: Sparkles, href: "/new", label: "New" },
-    { icon: Zap, href: "/gainers", label: "Gainers" },
-    { icon: Users, href: "/community", label: "Community" },
-    { icon: Settings, href: "/settings", label: "Settings" },
+    { icon: Wand2, href: "#", label: "Advertise" },
+    { icon: Star, href: "#", label: "Promoted" },
+    { icon: MessageCircle, href: "https://listing.astersolana.com/", label: "Teleegram" },
+    { icon: Twitter, href: "https://x.com/asterxsolana", label: "Twitter" },
+    { icon: Instagram, href: "https://www.instagram.com/asterxsolana", label: "Instagram" },
   ]
 
   const handleLogin = () => {
@@ -34,7 +33,7 @@ export function Sidebar() {
   return (
     <>
       <aside className="fixed left-0 top-0 h-screen w-16 md:w-16 bg-[rgba(20,20,35,0.85)] backdrop-blur-[30px] border border-[rgba(168,85,247,0.3)] shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] flex flex-col items-center py-4 z-50 animate-slide-in-left border-r">
-        <Link href="/" className="mb-8 animate-scale-in hover:scale-110 transition-all duration-300">
+        <Link href="https://astersolana.com/" className="mb-8 animate-scale-in hover:scale-110 transition-all duration-300">
           <div className="relative">
             <Image
               src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-xlKE07cZA3YwvA23c65NNvGkMYxbDJ.png"
@@ -70,7 +69,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="mt-auto">
+        {/* <div className="mt-auto">
           {user ? (
             <button
               onClick={logout}
@@ -90,10 +89,10 @@ export function Sidebar() {
               <div className="absolute inset-0 rounded-lg bg-[var(--neon-purple)] opacity-0 group-hover:opacity-20 blur-md transition-all duration-300" />
             </button>
           )}
-        </div>
+        </div> */}
       </aside>
 
-      {showLoginModal && (
+      {/* {showLoginModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in px-4">
           <div className="bg-[rgba(20,20,35,0.85)] backdrop-blur-[30px] border border-[rgba(168,85,247,0.3)] shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] rounded-xl p-8 w-full max-w-md animate-scale-in shadow-2xl">
             <h2 className="text-2xl font-bold mb-2 [text-shadow:0_0_10px_rgba(168,85,247,0.5),0_0_20px_rgba(168,85,247,0.5)]">
@@ -124,7 +123,7 @@ export function Sidebar() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </>
   )
 }

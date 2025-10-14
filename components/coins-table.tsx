@@ -295,7 +295,6 @@ export function CoinsTable() {
                 </th>
                 <th className="px-4 py-3 text-right">
                   <button
-                    onClick={() => handleSort("votes")}
                     className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
                   >
                     Votes
@@ -360,8 +359,8 @@ export function CoinsTable() {
                         size="sm"
                         variant="outline"
                         className="h-7 px-2 bg-transparent"
-                        onClick={() => handleVote(coin.id)}
-                        disabled={isVoted(coin.id)}
+                        // onClick={() => handleVote(coin.id)}
+                        // disabled={isVoted(coin.id)}
                       >
                         <ThumbsUp className={`w-3 h-3 ${isVoted(coin.id) ? "fill-primary" : ""}`} />
                       </Button>

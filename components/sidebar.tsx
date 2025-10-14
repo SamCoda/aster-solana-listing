@@ -15,9 +15,9 @@ export function Sidebar() {
 
   const navItems = [
     { icon: Home, href: "/", label: "Home" },
-    { icon: Wand2, href: "#", label: "Advertise" },
-    { icon: Star, href: "#", label: "Promoted" },
-    { icon: MessageCircle, href: "https://listing.astersolana.com/", label: "Teleegram" },
+    // { icon: Wand2, href: "#", label: "Advertise" },
+    // { icon: Star, href: "#", label: "Promoted" },
+    // { icon: MessageCircle, href: "https://listing.astersolana.com/", label: "Teleegram" },
     { icon: Twitter, href: "https://x.com/asterxsolana", label: "Twitter" },
     { icon: Instagram, href: "https://www.instagram.com/asterxsolana", label: "Instagram" },
   ]

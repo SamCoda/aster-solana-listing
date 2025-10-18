@@ -290,7 +290,7 @@ export const mockCoins: Coin[] = [
     volume24h: 3100000,
     votes: 4700,
     categories: ["Memes"],
-        promoted: true,
+        promoted: false,
   },
   {
     id: "ufd",
@@ -307,7 +307,7 @@ export const mockCoins: Coin[] = [
     volume24h: 4200000,
     votes: 5600,
     categories: ["Memes"],
-        promoted: true,
+        promoted: false,
   },
   {
     id: "dogwifhat",

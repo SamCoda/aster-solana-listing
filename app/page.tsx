@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/sidebar"
 import { TopTicker } from "@/components/top-ticker"
 import { PromotedCoins } from "@/components/promoted-coins"
 import { CoinsTable } from "@/components/coins-table"
+import TrendingSolanaTokens from "@/components/test-table"
 
 export default function Home() {
   return (
@@ -11,6 +12,7 @@ export default function Home() {
         <TopTicker />
         <main className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full">
           <PromotedCoins />
+          {/* <TrendingSolanaTokens /> */}
           <CoinsTable />
         </main>
       </div>

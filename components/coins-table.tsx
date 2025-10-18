@@ -1,59 +1,40 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Image from "next/image"
-import Link from "next/link"
-import { Star, ChevronUp, ChevronDown, ThumbsUp, RefreshCw } from "lucide-react"
+import { RefreshCw, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useVote } from "@/lib/vote-context"
-import { useData } from "@/lib/data-provider"
+import { CoinDetail } from "@/components/coin-detail"
 
-type SortField = "rank" | "price" | "change1h" | "change24h" | "change7d" | "marketCap" | "volume24h" | "votes"
+type SortField = "rank" | "price" | "change24h" | "marketCap" | "volume24h"
 type SortOrder = "asc" | "desc"
-type FilterTab = "top-today" | "top-all-time" | "new-listings" | "trending" | "gainers" | "losers"
-type CategoryFilter =
-  | "all"
-  | "ecosystems"
-  | "ai"
-  | "gambling"
-  | "sci-ecosystem"
-  | "ai-agents"
-  | "memes"
-  | "gaming"
-  | "defi"
 
 export function CoinsTable() {
+  const [coins, setCoins] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedCoin, setSelectedCoin] = useState<any | null>(null)
   const [sortField, setSortField] = useState<SortField>("rank")
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
-  const [filterTab, setFilterTab] = useState<FilterTab>("top-today")
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 20
+  const itemsPerPage = 10
 
-  const { coins, refreshData, isLoading } = useData()
-  const { voteForCoin, isVoted } = useVote()
-  const [coinVotes, setCoinVotes] = useState<Record<string, number>>(
-    Object.fromEntries(coins.map((coin) => [coin.id, coin.votes])),
-  )
-
-  const [isVisible, setIsVisible] = useState(false)
-  const tableRef = useRef<HTMLDivElement>(null)
+  const fetchTokens = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/solana-tokens")
+      const data = await res.json()
+      const arr = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+      setCoins(arr)
+    } catch (err) {
+      console.error("Error fetching Solana tokens:", err)
+      setCoins([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true)
-        }
-      },
-      { threshold: 0.1 },
-    )
-
-    if (tableRef.current) {
-      observer.observe(tableRef.current)
-    }
-
-    return () => observer.disconnect()
+    fetchTokens()
   }, [])
 
   const handleSort = (field: SortField) => {
@@ -65,349 +46,168 @@ export function CoinsTable() {
     }
   }
 
-  const handleVote = (coinId: string) => {
-    if (voteForCoin(coinId)) {
-      setCoinVotes((prev) => ({
-        ...prev,
-        [coinId]: (prev[coinId] || 0) + 1,
-      }))
+  const mapField = (field: SortField) => {
+    switch (field) {
+      case "rank":
+        return "cmc_rank"
+      case "price":
+        return "price"
+      case "change24h":
+        return "percent_change_24h"
+      case "marketCap":
+        return "market_cap"
+      case "volume24h":
+        return "volume_24h"
+      default:
+        return "price"
     }
   }
 
-  const filteredAndSortedCoins = useMemo(() => {
-    let filtered = [...coins]
-
-    // Apply category filter
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter((coin) =>
-        coin.categories.some((cat) => cat.toLowerCase().includes(categoryFilter.replace("-", " "))),
-      )
-    }
-
-    // Apply tab filter
-    switch (filterTab) {
-      case "gainers":
-        filtered = filtered.filter((coin) => coin.change24h > 0)
-        break
-      case "losers":
-        filtered = filtered.filter((coin) => coin.change24h < 0)
-        break
-      case "trending":
-        filtered = filtered.sort((a, b) => b.votes - a.votes).slice(0, 20)
-        break
-      case "new-listings":
-        filtered = filtered.slice(-20).reverse()
-        break
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      const aValue = a[sortField]
-      const bValue = b[sortField]
+  const sortedCoins = useMemo(() => {
+    const arr = [...coins]
+    const key = mapField(sortField)
+    arr.sort((a: any, b: any) => {
+      const getValue = (c: any) => {
+        if (key === "cmc_rank") return Number(c?.cmc_rank ?? c?.rank ?? 0)
+        const q = c?.quote?.USD
+        if (!q) return 0
+        switch (key) {
+          case "price": return Number(q.price ?? 0)
+          case "percent_change_24h": return Number(q.percent_change_24h ?? 0)
+          case "market_cap": return Number(q.market_cap ?? 0)
+          case "volume_24h": return Number(q.volume_24h ?? 0)
+          default: return 0
+        }
+      }
+      const aValue = getValue(a)
+      const bValue = getValue(b)
       const modifier = sortOrder === "asc" ? 1 : -1
       return aValue > bValue ? modifier : -modifier
     })
-
-    return filtered
-  }, [coins, sortField, sortOrder, filterTab, categoryFilter])
+    return arr
+  }, [coins, sortField, sortOrder])
 
   const paginatedCoins = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage
-    return filteredAndSortedCoins.slice(startIndex, startIndex + itemsPerPage)
-  }, [filteredAndSortedCoins, currentPage])
+    return sortedCoins.slice(startIndex, startIndex + itemsPerPage)
+  }, [sortedCoins, currentPage])
 
-  const totalPages = Math.ceil(filteredAndSortedCoins.length / itemsPerPage)
+  const totalPages = Math.max(1, Math.ceil((coins?.length ?? 0) / itemsPerPage))
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null
-    return sortOrder === "asc" ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+  // 👇 if a coin is selected, show CoinDetail instead of table
+  if (selectedCoin) {
+    const q = selectedCoin.quote?.USD ?? {}
+    const coinForDetail = {
+      id: selectedCoin.id,
+      name: selectedCoin.name,
+      ticker: selectedCoin.symbol,
+      logo: selectedCoin.logo,
+      rank: selectedCoin.cmc_rank,
+      price: q.price ?? 0,
+      change24h: q.percent_change_24h ?? 0,
+      change7d: q.percent_change_7d ?? 0,
+      marketCap: q.market_cap ?? 0,
+      volume24h: q.volume_24h ?? 0,
+      fdv: q.fully_diluted_market_cap ?? q.market_cap ?? 0,
+      categories: ["Solana", "Token"],
+      votes: Math.floor(Math.random() * 5000),
+    }
+
+    return (
+      <div>
+        <Button variant="outline" onClick={() => setSelectedCoin(null)} className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Coins
+        </Button>
+        <CoinDetail coin={coinForDetail} />
+      </div>
+    )
   }
 
+  if (loading) return <p className="text-center py-6">Loading Solana tokens...</p>
+  if (!Array.isArray(coins) || coins.length === 0) return <p className="text-center py-6">No tokens found.</p>
+
   return (
-    <div ref={tableRef} className="w-full">
-      <div
-        className={`mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${isVisible ? "animate-fade-in" : "opacity-0"}`}
-      >
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Top Coins Today</h1>
-          <p className="text-muted-foreground text-sm">
-            Discover Leading Cryptocurrencies Voted by the Community in the Last 24 Hours
-          </p>
-        </div>
-        <Button
-          onClick={refreshData}
-          disabled={isLoading}
-          variant="outline"
-          size="sm"
-          className="gap-2 bg-transparent transition-smooth hover:scale-105"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-          <span className="hidden sm:inline">Refresh</span>
+    <div className="w-full">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">🔥 Trending Solana Coins</h1>
+        <Button onClick={fetchTokens} variant="outline" size="sm" className="gap-2">
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
         </Button>
       </div>
 
-      <div
-        className={`flex items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide w-full ${isVisible ? "animate-fade-in stagger-1" : "opacity-0"}`}
-      >
-        <Button
-          variant={filterTab === "top-today" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterTab("top-today")}
-          className="whitespace-nowrap transition-smooth hover:scale-105"
-        >
-          Top Today
-        </Button>
-        <Button
-          variant={filterTab === "top-all-time" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterTab("top-all-time")}
-          className="whitespace-nowrap transition-smooth hover:scale-105"
-        >
-          Top All Time
-        </Button>
-        <Button
-          variant={filterTab === "new-listings" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterTab("new-listings")}
-          className="whitespace-nowrap transition-smooth hover:scale-105"
-        >
-          New Listings
-        </Button>
-        <Button
-          variant={filterTab === "trending" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterTab("trending")}
-          className="whitespace-nowrap transition-smooth hover:scale-105"
-        >
-          Trending
-        </Button>
-        <Button
-          variant={filterTab === "gainers" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterTab("gainers")}
-          className="whitespace-nowrap transition-smooth hover:scale-105"
-        >
-          Gainers
-        </Button>
-        <Button
-          variant={filterTab === "losers" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setFilterTab("losers")}
-          className="whitespace-nowrap transition-smooth hover:scale-105"
-        >
-          Losers
-        </Button>
-      </div>
-
-      <div
-        className={`flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide w-full ${isVisible ? "animate-fade-in stagger-2" : "opacity-0"}`}
-      >
-        <span className="text-sm text-muted-foreground mr-2 whitespace-nowrap">Categories:</span>
-        {["all", "ecosystems", "ai", "gambling", "sci-ecosystem", "ai-agents", "memes", "gaming", "defi"].map(
-          (category) => (
-            <Button
-              key={category}
-              variant={categoryFilter === category ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setCategoryFilter(category as CategoryFilter)}
-              className="whitespace-nowrap text-xs transition-smooth hover:scale-105"
-            >
-              {category === "all" ? "All" : category.charAt(0).toUpperCase() + category.slice(1).replace("-", " ")}
-            </Button>
-          ),
-        )}
-      </div>
-
-      <div
-        className={`bg-card border border-border rounded-lg overflow-hidden w-full ${isVisible ? "animate-fade-in-up stagger-3" : "opacity-0"}`}
-      >
-        <div className="overflow-x-auto w-full">
-          <table className="w-full min-w-[800px]">
-            <thead className="bg-muted/50 border-b border-border">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+          <table className="w-full min-w-[800px] border-collapse text-sm">
+            <thead className="bg-muted/40 text-gray-400 uppercase text-xs tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">
-                  <button
-                    onClick={() => handleSort("rank")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth"
-                  >
-                    #<SortIcon field="rank" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left">
-                  <div className="flex items-center gap-1 text-sm font-medium">Asset</div>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleSort("price")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    Price
-                    <SortIcon field="price" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleSort("change1h")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    %1h
-                    <SortIcon field="change1h" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleSort("change24h")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    %24h
-                    <SortIcon field="change24h" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleSort("change7d")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    %7d
-                    <SortIcon field="change7d" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleSort("marketCap")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    Market Cap
-                    <SortIcon field="marketCap" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <div className="flex items-center gap-1 text-sm font-medium">FDV</div>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleSort("volume24h")}
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    24h Volume
-                    <SortIcon field="volume24h" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-right">
-                  <button
-                    className="flex items-center gap-1 text-sm font-medium hover:text-primary transition-smooth ml-auto"
-                  >
-                    Votes
-                    <SortIcon field="votes" />
-                  </button>
-                </th>
+                <th className="px-6 py-3 text-left font-medium">#</th>
+                <th className="px-6 py-3 text-left font-medium">Token</th>
+                <th className="px-6 py-3 text-right font-medium">Price ($)</th>
+                <th className="px-6 py-3 text-right font-medium">% 24h</th>
+                <th className="px-6 py-3 text-right font-medium">Volume (24h)</th>
+                <th className="px-6 py-3 text-right font-medium">Market Cap</th>
               </tr>
             </thead>
-            <tbody>
-              {paginatedCoins.map((coin, index) => (
-                <tr key={coin.id} className="border-b border-border hover:bg-muted/30 transition-smooth">
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <Star className="w-4 h-4 text-muted-foreground hover:text-yellow-500 cursor-pointer transition-smooth" />
-                      <span className="text-muted-foreground">{coin.rank}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <Link
-                      href={`/coin/${coin.id}`}
-                      className="flex items-center gap-3 hover:text-primary transition-smooth"
-                    >
-                      <Image
-                        src={coin.logo || "/placeholder.svg"}
-                        alt={coin.name}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
+
+            <tbody className="divide-y divide-border">
+              {paginatedCoins.map((coin, index) => {
+                const q = coin?.quote?.USD ?? {}
+                const price = Number(q.price ?? 0)
+                const pct24 = Number(q.percent_change_24h ?? 0)
+                const vol24 = Number(q.volume_24h ?? 0)
+                const mcap = Number(q.market_cap ?? 0)
+
+                return (
+                  <tr
+                    key={coin.id ?? index}
+                    onClick={() => setSelectedCoin(coin)}
+                    className="hover:bg-muted/10 cursor-pointer transition-colors duration-200"
+                  >
+                    <td className="px-6 py-4 text-gray-400">{index + 1 + (currentPage - 1) * itemsPerPage}</td>
+                    <td className="px-6 py-4 flex items-center gap-3">
+                      {coin.logo ? (
+                        <Image src={coin.logo} alt={coin.name} width={28} height={28} className="rounded-full shadow-sm" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-gray-200" />
+                      )}
                       <div>
-                        <div className="font-semibold">{coin.name}</div>
-                        <div className="text-xs text-muted-foreground">{coin.ticker}</div>
+                        <p className="font-semibold text-foreground">{coin.name}</p>
+                        <p className="text-xs text-muted-foreground">{coin.symbol}</p>
                       </div>
-                    </Link>
-                  </td>
-                  <td className="px-4 py-4 text-right font-mono">${coin.price.toFixed(6)}</td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={coin.change1h >= 0 ? "text-accent" : "text-destructive"}>
-                      {coin.change1h >= 0 ? "+" : ""}
-                      {coin.change1h.toFixed(2)}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={coin.change24h >= 0 ? "text-accent" : "text-destructive"}>
-                      {coin.change24h >= 0 ? "+" : ""}
-                      {coin.change24h.toFixed(2)}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className={coin.change7d >= 0 ? "text-accent" : "text-destructive"}>
-                      {coin.change7d >= 0 ? "+" : ""}
-                      {coin.change7d.toFixed(2)}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-right font-mono">${(coin.marketCap / 1000000).toFixed(2)}M</td>
-                  <td className="px-4 py-4 text-right font-mono">${(coin.fdv / 1000000).toFixed(2)}M</td>
-                  <td className="px-4 py-4 text-right font-mono">${(coin.volume24h / 1000).toFixed(0)}K</td>
-                  <td className="px-4 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="text-sm">{coinVotes[coin.id] || coin.votes}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 bg-transparent"
-                        // onClick={() => handleVote(coin.id)}
-                        // disabled={isVoted(coin.id)}
-                      >
-                        <ThumbsUp className={`w-3 h-3 ${isVoted(coin.id) ? "fill-primary" : ""}`} />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4 text-right">${price.toLocaleString()}</td>
+                    <td className={`px-6 py-4 text-right ${pct24 >= 0 ? "text-green-500" : "text-red-500"}`}>
+                      {pct24.toFixed(2)}%
+                    </td>
+                    <td className="px-6 py-4 text-right text-muted-foreground">${vol24.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-muted-foreground">${mcap.toLocaleString()}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 md:px-6 py-4 border-t border-border gap-4 w-full">
-          <div className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-            {Math.min(currentPage * itemsPerPage, filteredAndSortedCoins.length)} of {filteredAndSortedCoins.length}
-          </div>
-          <div className="flex items-center gap-2 flex-wrap justify-center">
+        <div className="flex justify-between items-center p-4 border-t">
+          <span className="text-sm text-muted-foreground">
+            Showing {(currentPage - 1) * itemsPerPage + 1}–
+            {Math.min(currentPage * itemsPerPage, coins.length)} of {coins.length}
+          </span>
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="transition-smooth hover:scale-105"
             >
               Previous
             </Button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const page = i + 1
-              return (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(page)}
-                  className="transition-smooth hover:scale-105"
-                >
-                  {page}
-                </Button>
-              )
-            })}
-            {totalPages > 5 && <span className="text-muted-foreground">...</span>}
             <Button
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="transition-smooth hover:scale-105"
             >
               Next
             </Button>
